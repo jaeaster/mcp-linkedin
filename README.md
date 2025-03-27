@@ -1,13 +1,23 @@
 # MCP LinkedIn
 
-A Model Context Protocol (MCP) server that provides tools to interact with LinkedIn's Feeds and Job API.
+A Model Context Protocol (MCP) server that provides tools to interact with LinkedIn for lead generation, sales prospecting, and networking.
 
 This is using unofficial LinkedIn API via [Linkedin-api](https://github.com/tomquirk/linkedin-api). Use at your own risk.
 
 <a href="https://smithery.ai/server/mcp-linkedin"><img alt="Smithery Badge" src="https://smithery.ai/badge/mcp-linkedin"></a>
 <a href="https://glama.ai/mcp/servers/dvbdubl2bg"><img width="380" height="200" src="https://glama.ai/mcp/servers/dvbdubl2bg/badge" alt="mcp-linkedin MCP server" /></a>
 
-### Installing via Smithery
+## Overview
+
+This MCP server provides a comprehensive set of tools for LLMs to interact with LinkedIn for various business development activities, including:
+
+1. Finding and qualifying sales leads
+2. Researching companies and industries
+3. Identifying decision makers
+4. Generating personalized outreach content
+5. Monitoring job changes and company updates
+
+## Installing via Smithery
 
 To install LinkedIn Interaction Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp-linkedin):
 
@@ -32,127 +42,135 @@ npx -y @smithery/cli install mcp-linkedin --client claude
 }
 ```
 
-## Sample usage
+## Available Tools
 
-Using [mcp-client-cli](https://github.com/adhikasp/mcp-client-cli)
+### Feed and Job Search
 
-### Get feed posts
+1. `get_feed_posts` - Retrieve LinkedIn feed posts
+2. `search_jobs` - Search for jobs on LinkedIn based on keywords and location
+
+### Company Research
+
+3. `search_companies` - Search for companies based on keywords, industry, and location
+4. `get_company_details` - Get detailed information about a specific company
+5. `get_company_updates` - Get recent updates and posts from a company
+6. `find_companies_using_technologies` - Find companies that are using specific technologies
+
+### People Research
+
+7. `search_people` - Search for people based on various criteria (title, company, industry, etc.)
+8. `get_profile_details` - Get detailed information about a specific LinkedIn profile
+9. `search_company_employees` - Find employees at a specific company
+10. `search_people_by_skills` - Find people who have specific skills
+11. `find_common_connections` - Find common connections or similarities between two profiles
+12. `find_recent_job_changes` - Find people who have recently changed jobs
+
+### Lead Generation
+
+13. `find_decision_makers` - Find decision makers at a specific company
+14. `generate_lead_recommendations` - Generate lead recommendations for IT services sales
+15. `identify_target_accounts` - Identify target accounts based on specific criteria
+16. `analyze_prospect_profile` - Analyze a prospect's profile for sales opportunities
+17. `generate_sales_outreach_context` - Generate personalized context for sales outreach
+
+## Sample Usage
+
+Using [mcp-client-cli](https://github.com/adhikasp/mcp-client-cli) or directly with Claude:
+
+### Find Companies in a Specific Industry
 
 ```
-$ llm whats happening in linkedin feed? Do not mention names
-
-I'll retrieve the recent LinkedIn feed posts without mentioning any specific names.
+I need to find software companies in San Francisco that might need cybersecurity services.
 
 Tool Calls:
-  get_feed_posts
+  search_companies
   Args:
-    limit: 10
-
-Based on the LinkedIn feed, here are the key highlights without mentioning specific names:
-
-1. Data Science & Cybersecurity Insights:
-   - A post about a massive dataset from a major tech company
-   - Includes 13 million pieces of evidence
-   - Covers SIEM telemetry from 6,100 organizations
-   - Represents 441 MITRE ATT&CK techniques
-
-2. DevOps Community Event:
-   - A local DevOps meetup was held at a tech company office
-   - Discussed topics like AWS Lambda, Kubernetes scaling, Terraform
-   - Highlighted the importance of networking and continuous learning
-   - Shared experiences of transitioning between tech roles
-
-3. Linux Engineering Perspectives:
-   - Insights into what makes a great Linux engineer
-   - Key skills include:
-     * Command-line troubleshooting
-     * Process management
-     * Networking fundamentals
-     * System architecture understanding
-     * Task automation
-     * Shell scripting
-
-4. Professional Networking:
-   - Some posts about job seeking
-   - Discussions about career transitions
-   - Sharing professional experiences and learnings
-
-5. Tech Community Reflections:
-   - Posts about inspirational figures
-   - Discussions on professional growth
-   - Reflections on learning and personal development
-
-The feed showcases a mix of technical insights, professional networking, career development, and community engagement across various tech domains.
+    keywords: software
+    industry: Information Technology
+    location: San Francisco
+    limit: 5
 ```
 
-### Search for jobs
+### Identify Decision Makers at a Company
 
 ```
-$ llm search for 3 data engineer jobs in jakarta. For each job check if it a good match for me by analyzing it against my resume in file resume.md. Do not mention company name in your result but only generic area where the company business is about
-
-I'll help you find data engineer jobs in Jakarta and analyze them against your resume. I'll break this down into steps:
-
-1. First, I'll search for data engineer jobs in Jakarta
-2. Then, I'll read your resume
-3. Finally, I'll analyze the job matches
-
-Let's start by searching for jobs:
+I found a potential client company with ID "123456". Can you find the key decision makers there?
 
 Tool Calls:
-  search_jobs
+  find_decision_makers
   Args:
-    keywords: data engineer
-    location: Jakarta
+    company_id: 123456
+    titles: ["CTO", "CISO", "Head of IT", "VP of Engineering"]
     limit: 3
+```
 
+### Generate Personalized Outreach
 
-Now, I'll read your resume:
+```
+I need to send a personalized email to this prospect with profile ID "john-doe-123". We offer cloud migration services.
 
 Tool Calls:
-  read_file
+  generate_sales_outreach_context
   Args:
-    path: resume.md
-Secure MCP Filesystem Server running on stdio
-Allowed directories: [ '/home/adhikasp', '/mnt/e' ]
-
-
-Now, I'll analyze the jobs against your resume:
-
-1. Job in Financial Technology Sector (Lead Backend Engineer):
-   - Match Score: 85%
-   - Strengths:
-     * Requires experience in developing scalable microservices (aligns with your Grab experience)
-     * Strong focus on cloud infrastructure (AWS, GCP) - matches your cloud skills
-     * Requires experience with event-driven architecture and message brokers
-     * Requires Go or Python programming (your proficient languages)
-   - Potential Gaps:
-     * Specific focus on credit risk and fraud detection might require additional domain knowledge
-     * Emphasis on team leadership (6+ years experience leading teams)
-
-2. Job in Financial Technology Sector (DevOps Engineer):
-   - Match Score: 75%
-   - Strengths:
-     * Requires cloud platform experience (AWS, GCP)
-     * Needs containerization skills (Docker, Kubernetes)
-     * Requires scripting in Python and Bash
-     * Needs infrastructure as code experience
-   - Potential Gaps:
-     * More DevOps focused compared to your backend engineering background
-     * Specific monitoring tools might require additional learning
-
-3. Job in Enterprise Collaboration Software (Solution Engineer):
-   - Match Score: 60%
-   - Strengths:
-     * Requires strong communication skills
-     * Technical consulting background
-     * Experience with enterprise software
-   - Potential Gaps:
-     * Less technical compared to your current role
-     * More sales-oriented solution engineering
-     * Less hands-on technical development
-
-Recommendation:
-The first job (Lead Backend Engineer) appears to be the best match for your skills and experience. It closely aligns with your current work, particularly in terms of backend development, cloud infrastructure, and working with distributed systems. The role's requirements in Go/Python, microservices, and event-driven architecture are very compatible with your professional background.
-
-Would you like me to elaborate on any of these job analyses or provide more detailed insights?
+    profile_id: john-doe-123
+    company_service: cloud migration services
 ```
+
+### Find Companies Using Specific Technologies
+
+```
+I want to find companies that are using legacy banking systems that might need modernization.
+
+Tool Calls:
+  find_companies_using_technologies
+  Args:
+    technologies: ["COBOL", "mainframe", "legacy systems", "core banking"]
+    industry: Banking
+    limit: 5
+```
+
+### Research a Prospect's Background
+
+```
+I have a meeting with this prospect tomorrow. Can you analyze their profile to help me prepare?
+
+Tool Calls:
+  analyze_prospect_profile
+  Args:
+    profile_id: jane-smith-456
+    service_keywords: ["digital transformation", "IT consulting", "ERP implementation"]
+```
+
+## Integration with LLM Applications
+
+This MCP server is designed to provide LinkedIn data and insights to LLM applications to enhance their capabilities for sales, prospecting, and business development tasks. By connecting this MCP to an LLM, the AI can:
+
+1. Research and qualify potential sales leads
+2. Generate personalized outreach content
+3. Prepare for sales meetings with prospect research
+4. Monitor industry trends and competition
+5. Find and analyze target accounts
+
+## Development
+
+### Prerequisites
+
+- Python 3.7+
+- LinkedIn account credentials
+
+### Setup
+
+1. Clone the repository
+2. Install dependencies: `pip install -e .`
+3. Set environment variables:
+   - LINKEDIN_EMAIL
+   - LINKEDIN_PASSWORD
+4. Run the server: `python -m mcp_linkedin.client`
+
+### Adding New Tools
+
+You can extend the functionality by adding new tools to `src/mcp_linkedin/client.py`.
+
+## Disclaimer
+
+This project uses an unofficial LinkedIn API. Use at your own risk and ensure compliance with LinkedIn's terms of service. This tool is intended for legitimate business development activities and not for scraping or mass data collection.
