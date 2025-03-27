@@ -62,7 +62,6 @@ def search_jobs(keywords: str, limit: int = 3, offset: int = 0, location: str = 
 
     return job_results
 
-
 @mcp.tool()
 def search_companies(keywords: str, industry: str = None, location: str = None, limit: int = 10) -> str:
     """
@@ -76,33 +75,48 @@ def search_companies(keywords: str, industry: str = None, location: str = None, 
     """
     client = get_client()
     try:
-        # Build search filters
-        search_params = {
-            "keywords": keywords,
-        }
+        # Combine all search terms into keywords list
+        keyword_list = [keywords]
 
-        # Add optional filters
+        # Add industry and location if provided
         if industry:
-            search_params["industry"] = industry
+            keyword_list.append(industry)
 
         if location:
-            search_params["location"] = location
+            keyword_list.append(location)
 
-        # Execute search
+        # Execute search with combined keywords
         companies = client.search_companies(
-            **search_params,
+            keywords=keyword_list,
             limit=limit
         )
 
         # Format results
         results = []
         for company in companies:
-            company_id = company.get("entityUrn", "").split(":")[-1]
-            company_name = company.get("name", "Unknown")
-            company_industry = company.get("industries", ["Unknown"])[0] if company.get("industries") else "Unknown"
-            company_location = company.get("headquarter", {}).get("country", "Unknown") if company.get("headquarter") else "Unknown"
-            company_description = company.get("description", "No description available")
-            company_size = company.get("staffCount", "Unknown")
+            # Extract company ID from URN if available
+            urn_id = company.get("urn_id", "")
+            name = company.get("name", "Unknown")
+            headline = company.get("headline", "")
+
+            # Get detailed company info if possible
+            try:
+                company_details = client.get_company(urn_id)
+                company_id = urn_id
+                company_name = name
+                company_industry = company_details.get("industries", ["Unknown"])[0] if company_details.get("industries") else "Unknown"
+                company_location = company_details.get("headquarter", {}).get("country", "Unknown") if company_details.get("headquarter") else "Unknown"
+                company_description = company_details.get("description", "No description available")
+                company_size = company_details.get("staffCount", "Unknown")
+            except Exception:
+                # Fallback to basic info if detailed info isn't available
+                company_id = urn_id
+                company_name = name
+                company_industry = "Unknown"
+                company_location = "Unknown"
+                company_description = headline
+                company_size = "Unknown"
+
             company_url = f"https://www.linkedin.com/company/{company_id}"
 
             results.append({
@@ -161,7 +175,6 @@ def get_company_details(company_id: str) -> str:
     except Exception as e:
         logger.error(f"Error getting company details: {e}")
         return f"Error getting company details: {e}"
-
 
 @mcp.tool()
 def search_people(keywords: str = None, title: str = None, company: str = None,
@@ -307,7 +320,6 @@ def get_profile_details(profile_id: str) -> str:
     except Exception as e:
         logger.error(f"Error getting profile details: {e}")
         return f"Error getting profile details: {e}"
-
 
 @mcp.tool()
 def search_company_employees(company_id: str, title: str = None, limit: int = 10) -> str:
@@ -458,7 +470,6 @@ def search_people_by_skills(skills: List[str], title: str = None, industry: str 
         logger.error(f"Error searching people by skills: {e}")
         return f"Error searching people by skills: {e}"
 
-
 @mcp.tool()
 def get_company_updates(company_id: str, limit: int = 5) -> str:
     """
@@ -565,7 +576,6 @@ def find_decision_makers(company_id: str, titles: List[str] = None, limit: int =
         logger.error(f"Error finding decision makers: {e}")
         return f"Error finding decision makers: {e}"
 
-
 @mcp.tool()
 def generate_lead_recommendations(industry: str = None, company_size: str = None,
                                 technologies: List[str] = None, location: str = None,
@@ -586,18 +596,16 @@ def generate_lead_recommendations(industry: str = None, company_size: str = None
         if not industry:
             industry = "Information Technology"
 
-        # Search for companies first
-        search_params = {}
+        # Build the keywords list
+        keyword_list = [industry]
 
-        if industry:
-            search_params["keywords"] = industry
-
+        # Add location if provided
         if location:
-            search_params["location"] = location
+            keyword_list.append(location)
 
         # Execute search
         companies = client.search_companies(
-            **search_params,
+            keywords=keyword_list,
             limit=limit * 2  # Search for more to filter later
         )
 
@@ -614,18 +622,35 @@ def generate_lead_recommendations(industry: str = None, company_size: str = None
 
             filtered_companies = []
             for company in companies:
-                staff_count = company.get("staffCount", 0)
-                if range_min <= staff_count <= range_max:
+                # Try to get detailed company info to check size
+                try:
+                    company_id = company.get("urn_id", "")
+                    company_details = client.get_company(company_id)
+                    staff_count = company_details.get("staffCount", 0)
+
+                    if range_min <= staff_count <= range_max:
+                        filtered_companies.append(company)
+                except Exception:
+                    # If we can't get staff count, skip size filtering for this company
                     filtered_companies.append(company)
 
         # Generate recommendations
         recommendations = []
         for company in filtered_companies[:limit]:
-            company_id = company.get("entityUrn", "").split(":")[-1]
+            company_id = company.get("urn_id", "")
             company_name = company.get("name", "Unknown")
-            company_industry = company.get("industries", ["Unknown"])[0] if company.get("industries") else "Unknown"
-            company_location = company.get("headquarter", {}).get("country", "Unknown") if company.get("headquarter") else "Unknown"
-            company_size = company.get("staffCount", "Unknown")
+
+            # Get detailed company info if possible
+            try:
+                company_details = client.get_company(company_id)
+                company_industry = company_details.get("industries", ["Unknown"])[0] if company_details.get("industries") else "Unknown"
+                company_location = company_details.get("headquarter", {}).get("country", "Unknown") if company_details.get("headquarter") else "Unknown"
+                company_size = company_details.get("staffCount", "Unknown")
+            except Exception:
+                # Fallback to basic info
+                company_industry = "Unknown"
+                company_location = "Unknown"
+                company_size = "Unknown"
 
             # Find decision makers
             decision_makers = []
@@ -718,7 +743,6 @@ def generate_lead_recommendations(industry: str = None, company_size: str = None
         logger.error(f"Error generating lead recommendations: {e}")
         return f"Error generating lead recommendations: {e}"
 
-
 @mcp.tool()
 def identify_target_accounts(industry: str, keywords: List[str] = None, location: str = None,
                            min_size: int = None, max_size: int = None,
@@ -738,47 +762,55 @@ def identify_target_accounts(industry: str, keywords: List[str] = None, location
     """
     client = get_client()
     try:
-        # Build search parameters
-        search_params = {
-            "keywords": industry,
-        }
+        # Build search keywords
+        search_keywords = [industry]
 
+        # Add location if provided
         if location:
-            search_params["location"] = location
+            search_keywords.append(location)
 
         # Execute search
         companies = client.search_companies(
-            **search_params,
+            keywords=search_keywords,
             limit=limit * 3  # Get more results for filtering
         )
 
         # Apply filters
         filtered_companies = []
         for company in companies:
-            # Check company size
-            staff_count = company.get("staffCount", 0)
+            # Get detailed company info if possible
+            try:
+                company_id = company.get("urn_id", "")
+                company_details = client.get_company(company_id)
 
-            if min_size is not None and staff_count < min_size:
-                continue
+                # Check company size
+                staff_count = company_details.get("staffCount", 0)
 
-            if max_size is not None and staff_count > max_size:
-                continue
-
-            # Check for keywords in description
-            description = company.get("description", "").lower()
-
-            if keywords:
-                keyword_match = False
-                for keyword in keywords:
-                    if keyword.lower() in description:
-                        keyword_match = True
-                        break
-
-                if not keyword_match:
+                if min_size is not None and staff_count < min_size:
                     continue
 
-            # Add to filtered results
-            filtered_companies.append(company)
+                if max_size is not None and staff_count > max_size:
+                    continue
+
+                # Check for keywords in description
+                description = company_details.get("description", "").lower()
+
+                if keywords:
+                    keyword_match = False
+                    for keyword in keywords:
+                        if keyword.lower() in description:
+                            keyword_match = True
+                            break
+
+                    if not keyword_match:
+                        continue
+
+                # Add to filtered results with enriched data
+                company["detailed_info"] = company_details
+                filtered_companies.append(company)
+            except Exception:
+                # Skip if we can't get detailed info
+                continue
 
             # Break if we have enough
             if len(filtered_companies) >= limit:
@@ -787,12 +819,15 @@ def identify_target_accounts(industry: str, keywords: List[str] = None, location
         # Format results
         results = []
         for company in filtered_companies[:limit]:
-            company_id = company.get("entityUrn", "").split(":")[-1]
+            company_id = company.get("urn_id", "")
             company_name = company.get("name", "Unknown")
-            company_industry = company.get("industries", ["Unknown"])[0] if company.get("industries") else "Unknown"
-            company_location = company.get("headquarter", {}).get("country", "Unknown") if company.get("headquarter") else "Unknown"
-            company_size = company.get("staffCount", "Unknown")
-            company_description = company.get("description", "No description available")[:200] + "..." if company.get("description") and len(company.get("description")) > 200 else company.get("description", "No description available")
+
+            # Try to get detailed info from our enriched data
+            company_details = company.get("detailed_info", {})
+            company_industry = company_details.get("industries", ["Unknown"])[0] if company_details.get("industries") else "Unknown"
+            company_location = company_details.get("headquarter", {}).get("country", "Unknown") if company_details.get("headquarter") else "Unknown"
+            company_size = company_details.get("staffCount", "Unknown")
+            company_description = company_details.get("description", "No description available")[:200] + "..." if company_details.get("description") and len(company_details.get("description")) > 200 else company_details.get("description", "No description available")
 
             # Technology interest score
             tech_score = 0
@@ -857,7 +892,6 @@ def identify_target_accounts(industry: str, keywords: List[str] = None, location
     except Exception as e:
         logger.error(f"Error identifying target accounts: {e}")
         return f"Error identifying target accounts: {e}"
-
 
 @mcp.tool()
 def analyze_prospect_profile(profile_id: str, service_keywords: List[str] = None) -> str:
@@ -991,7 +1025,6 @@ def analyze_prospect_profile(profile_id: str, service_keywords: List[str] = None
         logger.error(f"Error analyzing prospect profile: {e}")
         return f"Error analyzing prospect profile: {e}"
 
-
 @mcp.tool()
 def find_companies_using_technologies(technologies: List[str], industry: str = None,
                                     location: str = None, limit: int = 10) -> str:
@@ -1006,60 +1039,66 @@ def find_companies_using_technologies(technologies: List[str], industry: str = N
     """
     client = get_client()
     try:
-        # Build search parameters
-        search_params = {}
+        # Build search keywords
+        search_keywords = []
 
-        # Add parameters that are provided
+        # Add technologies
         if technologies and len(technologies) > 0:
-            search_params["keywords"] = " ".join(technologies[:2])  # Use first two technologies as keywords
+            search_keywords.extend(technologies[:2])  # Use first two technologies as keywords
 
+        # Add industry and location
         if industry:
-            search_params["industry"] = industry
+            search_keywords.append(industry)
 
         if location:
-            search_params["location"] = location
+            search_keywords.append(location)
 
         # Execute search
         companies = client.search_companies(
-            **search_params,
+            keywords=search_keywords,
             limit=limit * 3  # Get more results for filtering
         )
 
         # Format and filter results
         results = []
         for company in companies[:limit * 3]:
-            company_id = company.get("entityUrn", "").split(":")[-1]
-            company_name = company.get("name", "Unknown")
-            company_description = company.get("description", "").lower()
+            # Get detailed company info if possible
+            try:
+                company_id = company.get("urn_id", "")
+                company_details = client.get_company(company_id)
+                company_description = company_details.get("description", "").lower()
 
-            # Check for technology mentions in company description
-            tech_mentions = []
-            for tech in technologies:
-                if tech.lower() in company_description:
-                    tech_mentions.append(tech)
+                # Check for technology mentions in company description
+                tech_mentions = []
+                for tech in technologies:
+                    if tech.lower() in company_description:
+                        tech_mentions.append(tech)
 
-            # Only include companies that mention at least one technology
-            if not tech_mentions:
+                # Only include companies that mention at least one technology
+                if not tech_mentions:
+                    continue
+
+                company_name = company.get("name", "Unknown")
+                company_industry = company_details.get("industries", ["Unknown"])[0] if company_details.get("industries") else "Unknown"
+                company_location = company_details.get("headquarter", {}).get("country", "Unknown") if company_details.get("headquarter") else "Unknown"
+                company_size = company_details.get("staffCount", "Unknown")
+
+                results.append({
+                    "id": company_id,
+                    "name": company_name,
+                    "industry": company_industry,
+                    "location": company_location,
+                    "size": company_size,
+                    "technologies_mentioned": tech_mentions,
+                    "url": f"https://www.linkedin.com/company/{company_id}"
+                })
+
+                # Break if we have enough results
+                if len(results) >= limit:
+                    break
+            except Exception:
+                # Skip if we can't get detailed info
                 continue
-
-            # Get company details
-            company_industry = company.get("industries", ["Unknown"])[0] if company.get("industries") else "Unknown"
-            company_location = company.get("headquarter", {}).get("country", "Unknown") if company.get("headquarter") else "Unknown"
-            company_size = company.get("staffCount", "Unknown")
-
-            results.append({
-                "id": company_id,
-                "name": company_name,
-                "industry": company_industry,
-                "location": company_location,
-                "size": company_size,
-                "technologies_mentioned": tech_mentions,
-                "url": f"https://www.linkedin.com/company/{company_id}"
-            })
-
-            # Break if we have enough results
-            if len(results) >= limit:
-                break
 
         # If we don't have enough results, try searching job postings
         if len(results) < limit:
@@ -1116,7 +1155,6 @@ def find_companies_using_technologies(technologies: List[str], industry: str = N
     except Exception as e:
         logger.error(f"Error finding companies using technologies: {e}")
         return f"Error finding companies using technologies: {e}"
-
 
 @mcp.tool()
 def find_common_connections(profile_id1: str, profile_id2: str, limit: int = 5) -> str:
@@ -1188,7 +1226,6 @@ def find_common_connections(profile_id1: str, profile_id2: str, limit: int = 5) 
     except Exception as e:
         logger.error(f"Error finding common connections: {e}")
         return f"Error finding common connections: {e}"
-
 
 @mcp.tool()
 def find_recent_job_changes(industry: str = None, title_keywords: List[str] = None,
@@ -1299,7 +1336,6 @@ def find_recent_job_changes(industry: str = None, title_keywords: List[str] = No
         logger.error(f"Error finding recent job changes: {e}")
         return f"Error finding recent job changes: {e}"
 
-
 @mcp.tool()
 def generate_sales_outreach_context(profile_id: str, company_service: str) -> str:
     """
@@ -1373,13 +1409,16 @@ def generate_sales_outreach_context(profile_id: str, company_service: str) -> st
         try:
             if current_company:
                 # Search for the company
-                companies = client.search_companies(keywords=current_company, limit=1)
+                companies = client.search_companies(keywords=[current_company], limit=1)
 
                 if companies:
                     company = companies[0]
-                    company_id = company.get("entityUrn", "").split(":")[-1]
-                    company_size = company.get("staffCount", "Unknown")
-                    company_industry = company.get("industries", ["Unknown"])[0] if company.get("industries") else "Unknown"
+                    company_id = company.get("urn_id", "")
+
+                    # Get more details
+                    company_info = client.get_company(company_id)
+                    company_size = company_info.get("staffCount", "Unknown")
+                    company_industry = company_info.get("industries", ["Unknown"])[0] if company_info.get("industries") else "Unknown"
 
                     company_details = {
                         "id": company_id,
